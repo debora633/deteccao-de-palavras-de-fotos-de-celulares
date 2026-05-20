@@ -1,0 +1,1 @@
+# deteccao-de-palavras-de-fotos-de-celulares
