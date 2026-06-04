@@ -25,6 +25,10 @@ for filename in images:
         print(f"Erro ao carregar: {filename}")
         continue
 
+    # UPSCALE DA IMAGEM
+    scale = 3 
+    image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+
     print(f"Processando: {filename}")
 
     # DESKEW
@@ -33,7 +37,7 @@ for filename in images:
 
     # CINZA
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (3, 3), 0)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
     # CLAHE
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -61,14 +65,19 @@ for filename in images:
         10
     )
 
-    # MORFOLOGIA
-    kernel_morph = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel_morph, iterations=2)
-    dilated = cv2.dilate(closed, kernel_morph, iterations=1)
+    #MORFOLOGIA
+    morph_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+
+    # fecha falhas nas letras
+    closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, morph_kernel, iterations=2)
+
+    # junta regiões próximas
+    dilated = cv2.dilate(closed, morph_kernel, iterations=1)
 
     # CONTORNOS
     contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+# cópia para desenhar caixas
     result = image.copy()
 
     for c in contours:
@@ -78,12 +87,29 @@ for filename in images:
 
     # SALVAR
     name, ext = os.path.splitext(filename)
+    # imagem em escala de cinza
+    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_gray{ext}"),gray)
 
-    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_gray{ext}"), gray)
-    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_clahe{ext}"), contrast)
-    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_sharp{ext}"), sharp)
-    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_morph{ext}"), dilated)
-    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_binary{ext}"), binary)
-    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_final{ext}"), result)
+    # imagem após CLAHE (contraste)
+    cv2.imwrite(os.path.join(OUTPUT_FOLDER,f"{name}_clahe{ext}"),contrast)
+
+    # imagem após sharpen (nitidez)
+    cv2.imwrite(os.path.join(OUTPUT_FOLDER,f"{name}_sharp{ext}"),sharp)
+
+    # imagem após morfologia
+    cv2.imwrite(os.path.join(OUTPUT_FOLDER,f"{name}_morph{ext}"),dilated)
+
+    # imagem binarizada
+    cv2.imwrite(os.path.join(OUTPUT_FOLDER,f"{name}_binary{ext}"),binary)
+
+    # imagem final com bounding boxes
+    cv2.imwrite(os.path.join(OUTPUT_FOLDER,f"{name}_final{ext}"),result)
+
+    # MOSTRAR RESULTADO
+    show("Original", image)
+    show("CLAHE - Contraste Melhorado", contrast)
+    show("Sharpen - Nitidez", sharp)
+    show("Imagem Binaria", binary)
+    show("Texto Detectado", result)
 
 print("Processamento concluído.")
