@@ -45,9 +45,7 @@ for filename in images:
 
     print(f"Processando: {filename}")
 
-    # =========================
     # DESKEW (ROTAÇÃO AUTOMÁTICA)
-    # =========================
     angle = get_angle(image)
     image = rotate(image, angle)
 
@@ -81,27 +79,38 @@ for filename in images:
         10
     )
 
-    # =========================
     # FILTRO DE RUÍDO (MEDIAN BLUR)
-    # =========================
-    # O tamanho do kernel (3) deve ser ímpar. Remove pixels isolados sem borrar as bordas estruturais.
     denoised = cv2.medianBlur(binary, 3)
 
-    # MORFOLOGIA (Aplicada sobre a imagem sem ruído)
-    morph_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-    closed = cv2.morphologyEx(denoised, cv2.MORPH_CLOSE, morph_kernel, iterations=3)
-    dilated = cv2.dilate(closed, morph_kernel, iterations=1)
+    # MORFOLOGIA
+    morph_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+    closed = cv2.morphologyEx(denoised, cv2.MORPH_CLOSE, morph_kernel, iterations=1)
 
     # CONTORNOS
-    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     result = image.copy()
 
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
+        area = cv2.contourArea(contour)
 
-        if w > 20 and h > 10:
-            cv2.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    # filtro de regiões que parecem texto
+        if (
+        area > 100 and
+        w > 15 and
+        h > 8 and
+        w < image.shape[1] * 0.5 and
+        h < image.shape[0] * 0.2
+    ):
+
+            cv2.rectangle(
+            result,
+            (x,y),
+            (x+w,y+h),
+            (0,255,0),
+            2
+        )
 
     # SALVAR
     name, ext = os.path.splitext(filename)
@@ -111,13 +120,14 @@ for filename in images:
     cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_clahe{ext}"), contrast)
     cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_sharp{ext}"), sharp)
     cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_binary{ext}"), binary)
-    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_denoised{ext}"), denoised) # Novo arquivo
-    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_morph{ext}"), dilated)
+    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_denoised{ext}"), denoised)
+    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_morph{ext}"), closed)
     cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_final{ext}"), result)
 
     # MOSTRAR
     show("Original (Deskew aplicado)", image)
     show("Imagem Binaria (Sem Filtro)", binary)
     show("Imagem Binaria (Com Filtro de Ruido)", denoised)
+    show("Contornos Detectados", result)
 
 print("Processamento concluído.")
