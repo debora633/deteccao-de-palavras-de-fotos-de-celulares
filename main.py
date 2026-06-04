@@ -1,4 +1,5 @@
 import cv2
+from fastapi import background
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -51,7 +52,6 @@ for filename in images:
 
     # ESCALA DE CINZA
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # REDUÇÃO DE RUÍDO
     blur = cv2.GaussianBlur(gray, (3, 3), 0)
 
     # CLAHE
@@ -64,25 +64,33 @@ for filename in images:
 
     # SHARPEN
     kernel = np.array([
-        [0, -1, 0],
-        [-1, 5,-1],
-        [0, -1, 0]
+    [0, -1, 0],
+    [-1, 5,-1],
+    [0, -1, 0]
     ])
 
     sharp = cv2.filter2D(contrast, -1, kernel)
+    background = cv2.GaussianBlur(gray, (101,101), 0)
 
-    # GERAR NOME
-    name, ext = os.path.splitext(filename)
+    norm = cv2.divide(gray, background, scale=255)
+    
+    # BINARIZAÇÃO ADAPTATIVA GAUSSIANA
 
-    output_name = f"{name}_processada{ext}"
-
-    output_path = os.path.join(
-        OUTPUT_FOLDER,
-        output_name
+    binary = cv2.adaptiveThreshold(
+        norm,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        21,
+        10
     )
-    # SALVAR
-    cv2.imwrite(output_path, sharp)
 
+    # GERAR NOME 
+    name, ext = os.path.splitext(filename) 
+    output_name = f"{name}_processada{ext}" 
+    output_path = os.path.join( OUTPUT_FOLDER, output_name ) 
+    # SALVAR
+    cv2.imwrite(output_path, binary)
     print(f"Salva em: {output_path}")
 
 print("Processamento concluído.")
