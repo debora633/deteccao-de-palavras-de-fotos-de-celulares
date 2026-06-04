@@ -13,7 +13,6 @@ OUTPUT_FOLDER = "dataset/processadas"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 def show(title, image, cmap='gray'):
-
     plt.figure(figsize=(10, 7))
     plt.title(title)
 
@@ -33,7 +32,6 @@ images = [
 ]
 
 for filename in images:
-
     image_path = os.path.join(INPUT_FOLDER, filename)
     image = cv2.imread(image_path)
 
@@ -67,7 +65,6 @@ for filename in images:
         [-1, 5, -1],
         [0, -1, 0]
     ])
-
     sharp = cv2.filter2D(contrast, -1, kernel)
 
     # ILUMINAÇÃO
@@ -84,9 +81,15 @@ for filename in images:
         10
     )
 
-    # MORFOLOGIA
+    # =========================
+    # FILTRO DE RUÍDO (MEDIAN BLUR)
+    # =========================
+    # O tamanho do kernel (3) deve ser ímpar. Remove pixels isolados sem borrar as bordas estruturais.
+    denoised = cv2.medianBlur(binary, 3)
+
+    # MORFOLOGIA (Aplicada sobre a imagem sem ruído)
     morph_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-    closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, morph_kernel, iterations=3)
+    closed = cv2.morphologyEx(denoised, cv2.MORPH_CLOSE, morph_kernel, iterations=3)
     dilated = cv2.dilate(closed, morph_kernel, iterations=1)
 
     # CONTORNOS
@@ -107,12 +110,14 @@ for filename in images:
     cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_gray{ext}"), gray)
     cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_clahe{ext}"), contrast)
     cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_sharp{ext}"), sharp)
-    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_morph{ext}"), dilated)
     cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_binary{ext}"), binary)
+    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_denoised{ext}"), denoised) # Novo arquivo
+    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_morph{ext}"), dilated)
     cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_final{ext}"), result)
 
     # MOSTRAR
     show("Original (Deskew aplicado)", image)
-    show("Imagem Binaria", binary)
+    show("Imagem Binaria (Sem Filtro)", binary)
+    show("Imagem Binaria (Com Filtro de Ruido)", denoised)
 
 print("Processamento concluído.")
