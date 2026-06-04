@@ -47,11 +47,15 @@ for filename in images:
         print(f"Erro ao carregar: {filename}")
         continue
 
+    # UPSCALE DA IMAGEM
+    scale = 3 
+    image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+
     print(f"Processando: {filename}")
 
     # ESCALA DE CINZA
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (3, 3), 0)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
     # CLAHE - MELHORA CONTRASTE
     clahe = cv2.createCLAHE(
@@ -85,10 +89,10 @@ for filename in images:
     )
 
     #MORFOLOGIA
-    morph_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+    morph_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5,5))
 
     # fecha falhas nas letras
-    closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, morph_kernel, iterations=2)
+    closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, morph_kernel, iterations=3)
 
     # junta regiões próximas
     dilated = cv2.dilate(closed, morph_kernel, iterations=1)
@@ -96,7 +100,7 @@ for filename in images:
     #CONTORNOS
     contours, hierarchy = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-# cópia para desenhar caixas
+    # cópia para desenhar caixas
     result = image.copy()
 
     #BOUNDING BOXES
@@ -109,6 +113,10 @@ for filename in images:
 
     # SALVAR
     name, ext = os.path.splitext(filename)
+
+    # Upscale x3
+    cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_upscale{ext}"),image)
+
     # imagem em escala de cinza
     cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_gray{ext}"),gray)
 
@@ -129,9 +137,11 @@ for filename in images:
 
     # MOSTRAR RESULTADO
     show("Original", image)
-    show("CLAHE - Contraste Melhorado", contrast)
-    show("Sharpen - Nitidez", sharp)
+
+    '''show("CLAHE - Contraste Melhorado", contrast)
+    show("Sharpen - Nitidez", sharp)'''
     show("Imagem Binaria", binary)
-    show("Texto Detectado", result)
+
+    '''show("Texto Detectado", result)'''
 
 print("Processamento concluído.")
