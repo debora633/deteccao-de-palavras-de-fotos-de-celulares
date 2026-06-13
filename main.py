@@ -125,9 +125,9 @@ for filename in images:
     cv2.imwrite(os.path.join(OUTPUT_FOLDER, f"{name}_final{ext}"), result)
 
     # MOSTRAR
-    show("Original (Deskew aplicado)", image)
+    '''show("Original (Deskew aplicado)", image)
     show("Imagem Binaria (Sem Filtro)", binary)
     show("Imagem Binaria (Com Filtro de Ruido)", denoised)
-    show("Contornos Detectados", result)
+    show("Contornos Detectados", result)'''
 
 print("Processamento concluído.")
