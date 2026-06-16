@@ -10,10 +10,12 @@ INPUT_FOLDER = "dataset/originais"
 PROCESSADAS_FOLDER = "dataset/processadas"
 ETAPAS_FOLDER = "dataset/etapas"
 DETECCAO_FOLDER = "dataset/deteccao"
+ROTACAO_FOLDER = "dataset/originais_rotacao"
 
 os.makedirs(PROCESSADAS_FOLDER, exist_ok=True)
 os.makedirs(ETAPAS_FOLDER, exist_ok=True)
 os.makedirs(DETECCAO_FOLDER, exist_ok=True)
+os.makedirs(ROTACAO_FOLDER, exist_ok=True)
 
 valid_extensions = (".jpg", ".jpeg", ".png")
 
@@ -33,15 +35,22 @@ for filename in images:
 
     print(f"Processando: {filename}")
 
-    # =========================
+    name, ext = os.path.splitext(filename)
+
     # DESKEW
-    # =========================
     angle = get_angle(image)
     image = rotate(image, angle)
 
-    # =========================
+    # salvar rotação
+    cv2.imwrite(
+        os.path.join(ROTACAO_FOLDER, f"{name}_rotated{ext}"),
+        image
+    )
+
+    # cópia ORIGINAL para desenhar caixas depois
+    image_boxes = image.copy()
+
     # PREPROCESSAMENTO
-    # =========================
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     blur = cv2.GaussianBlur(gray, (3, 3), 0)
@@ -59,16 +68,12 @@ for filename in images:
     ])
     sharp = cv2.filter2D(contrast, -1, kernel_sharp)
 
-    # =========================
-    # CORREÇÃO DE ILUMINAÇÃO
-    # =========================
-    background = cv2.GaussianBlur(gray, (101, 101), 0)
 
+    # CORREÇÃO DE ILUMINAÇÃO
+    background = cv2.GaussianBlur(gray, (101, 101), 0)
     norm = cv2.divide(gray, background, scale=255)
 
-    # =========================
-    # BINARIZAÇÃO (SEGMENTAÇÃO)
-    # =========================
+    # BINARIZAÇÃO
     binary = cv2.adaptiveThreshold(
         norm,
         255,
@@ -78,12 +83,9 @@ for filename in images:
         10
     )
 
-    # inverter (IMPORTANTE)
     binary = cv2.bitwise_not(binary)
 
-    # =========================
-    # CONNECTED COMPONENTS (DETECÇÃO)
-    # =========================
+    # CONNECTED COMPONENTS
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
         binary,
         connectivity=8
@@ -99,9 +101,10 @@ for filename in images:
         h = stats[i, cv2.CC_STAT_HEIGHT]
         area = stats[i, cv2.CC_STAT_AREA]
 
-        # filtro de ruído
-        if area > 20 and area < 3000:
+        # filtro melhorado
+        if area > 20 and area < 2500:
 
+            # caixa na imagem binária
             cv2.rectangle(
                 output_boxes,
                 (x, y),
@@ -110,11 +113,15 @@ for filename in images:
                 2
             )
 
-    # =========================
+            # caixa na imagem ORIGINAL 
+            cv2.rectangle(
+                image_boxes,
+                (x, y),
+                (x + w, y + h),
+                (0, 255, 0),
+                2
+            )
     # SALVAR ETAPAS
-    # =========================
-    name, ext = os.path.splitext(filename)
-
     cv2.imwrite(os.path.join(ETAPAS_FOLDER, f"{name}_00_deskew{ext}"), image)
     cv2.imwrite(os.path.join(ETAPAS_FOLDER, f"{name}_01_gray{ext}"), gray)
     cv2.imwrite(os.path.join(ETAPAS_FOLDER, f"{name}_02_blur{ext}"), blur)
@@ -124,20 +131,23 @@ for filename in images:
     cv2.imwrite(os.path.join(ETAPAS_FOLDER, f"{name}_06_norm{ext}"), norm)
     cv2.imwrite(os.path.join(ETAPAS_FOLDER, f"{name}_07_binary{ext}"), binary)
 
-    # =========================
-    # SALVAR RESULTADO FINAL (BINÁRIO)
-    # =========================
+    # SALVAR RESULTADO FINAL
     cv2.imwrite(
         os.path.join(PROCESSADAS_FOLDER, f"{name}_final{ext}"),
         binary
     )
 
-    # =========================
-    # SALVAR DETECÇÃO (BOUNDING BOXES)
-    # =========================
+    # SALVAR DETECÇÃO
     cv2.imwrite(
-        os.path.join(DETECCAO_FOLDER, f"{name}_boxes{ext}"),
+        os.path.join(DETECCAO_FOLDER, f"{name}_boxes_binary{ext}"),
         output_boxes
+    )
+
+
+    # SALVAR DETECÇÃO 
+    cv2.imwrite(
+        os.path.join(DETECCAO_FOLDER, f"{name}_boxes_original{ext}"),
+        image_boxes
     )
 
     print(f"Salvo: {name}")
