@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import os
 from jdeskew.estimator import get_angle
 from jdeskew.utility import rotate
@@ -18,6 +17,64 @@ os.makedirs(DETECCAO_FOLDER, exist_ok=True)
 os.makedirs(ROTACAO_FOLDER, exist_ok=True)
 
 valid_extensions = (".jpg", ".jpeg", ".png")
+
+summary = {
+    "Adaptive Threshold": {
+        "imagens": 0,
+        "acertos": 0,
+        "erros": 0,
+        "total_boxes": 0
+    },
+    "Otsu": {
+        "imagens": 0,
+        "acertos": 0,
+        "erros": 0,
+        "total_boxes": 0
+    },
+    "Global": {
+        "imagens": 0,
+        "acertos": 0,
+        "erros": 0,
+        "total_boxes": 0
+    }
+}
+
+
+def count_components(binary_image):
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+        binary_image,
+        connectivity=8
+    )
+
+    count = 0
+    for i in range(1, num_labels):
+        area = stats[i, cv2.CC_STAT_AREA]
+        if area > 20 and area < 2500:
+            count += 1
+
+    return count
+
+
+def save_summary_file(summary_data, path="RESULTADOS.md"):
+    with open(path, "w", encoding="utf-8") as file:
+        file.write("# Resultados do Projeto\n\n")
+        file.write(
+            "| Método | Imagens processadas | Imagens com detecção | Imagens sem detecção | Total de boxes | Média de boxes por imagem |\n"
+        )
+        file.write(
+            "|---|---|---|---|---|---|\n"
+        )
+
+        for method, values in summary_data.items():
+            imagens = values["imagens"]
+            acertos = values["acertos"]
+            erros = values["erros"]
+            total_boxes = values["total_boxes"]
+            media_boxes = round(total_boxes / imagens, 2) if imagens else 0
+            file.write(
+                f"| {method} | {imagens} | {acertos} | {erros} | {total_boxes} | {media_boxes} |\n"
+            )
+
 
 images = [
     file for file in os.listdir(INPUT_FOLDER)
@@ -161,6 +218,34 @@ for filename in images:
             )
 
     # =========================
+    # CONTAGEM DE COMPONENTES POR MÉTODO
+    # =========================
+    count_adaptive = count_components(binary)
+    count_otsu = count_components(binary_otsu)
+    count_global = count_components(binary_global)
+
+    summary["Adaptive Threshold"]["imagens"] += 1
+    summary["Adaptive Threshold"]["total_boxes"] += count_adaptive
+    if count_adaptive > 0:
+        summary["Adaptive Threshold"]["acertos"] += 1
+    else:
+        summary["Adaptive Threshold"]["erros"] += 1
+
+    summary["Otsu"]["imagens"] += 1
+    summary["Otsu"]["total_boxes"] += count_otsu
+    if count_otsu > 0:
+        summary["Otsu"]["acertos"] += 1
+    else:
+        summary["Otsu"]["erros"] += 1
+
+    summary["Global"]["imagens"] += 1
+    summary["Global"]["total_boxes"] += count_global
+    if count_global > 0:
+        summary["Global"]["acertos"] += 1
+    else:
+        summary["Global"]["erros"] += 1
+
+    # =========================
     # SALVAR ETAPAS
     # =========================
     cv2.imwrite(os.path.join(ETAPAS_FOLDER, f"{name}_00_deskew{ext}"), image)
@@ -205,4 +290,5 @@ for filename in images:
 
     print(f"Salvo: {name}")
 
+save_summary_file(summary)
 print("Processamento concluído.")
